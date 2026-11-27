@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const { loginWithCredentials, getClient, getMe } = require('./src/ig');
+const { loginWithSession, getClient, getMe } = require('./src/ig');
 const { getConfig, setConfig } = require('./src/db');
 const { handleMessage, handleJoin } = require('./src/events');
 const { handleSendGc } = require('./src/commands');
@@ -16,7 +16,7 @@ let activeThread = null;
 let admins = [];
 
 app.post('/api/start', async (req, res) => {
-  const { password, username, igPassword, threadId, adminList } = req.body;
+  const { password, session, threadId, adminList } = req.body;
   
   if (password !== process.env.DASH_PASSWORD) {
     return res.status(401).json({ error: 'Wrong dashboard password' });
@@ -29,10 +29,11 @@ app.post('/api/start', async (req, res) => {
     admins = (adminList || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
     if (admins.length > 5) return res.status(400).json({ error: 'Max 5 admins allowed' });
 
-    await loginWithCredentials(username, igPassword, process.env.PROXY_URL);
+    await loginWithSession(session, process.env.PROXY_URL);
     
     setConfig('threadId', activeThread);
     setConfig('admins', JSON.stringify(admins));
+    setConfig('session', session);
 
     botRunning = true;
     startPolling();
@@ -107,6 +108,23 @@ async function checkAdminDMs() {
 }
 
 setInterval(() => { if (botRunning) checkAdminDMs(); }, 15000);
+
+// Auto resume
+(async () => {
+  const sess = getConfig('session');
+  const tid = getConfig('threadId');
+  const ad = getConfig('admins');
+  if (sess && tid) {
+    try {
+      activeThread = tid;
+      admins = JSON.parse(ad || '[]');
+      await loginWithSession(sess, process.env.PROXY_URL);
+      botRunning = true;
+      startPolling();
+      scheduler.start(tid);
+    } catch (e) { console.error('[resume]', e.message); }
+  }
+})();
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('[web] on', PORT));
