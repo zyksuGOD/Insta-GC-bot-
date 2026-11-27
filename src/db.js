@@ -1,58 +1,53 @@
-const Database = require('better-sqlite3');
+const fs = require('fs');
 const path = require('path');
 
-const db = new Database(path.join(__dirname, '..', 'bot.db'));
-db.pragma('journal_mode = WAL');
+const dbPath = path.join(__dirname, '..', 'bot.json');
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS config (
-  key TEXT PRIMARY KEY,
-  value TEXT
-);
-CREATE TABLE IF NOT EXISTS messages (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id TEXT,
-  username TEXT,
-  thread_id TEXT,
-  ts INTEGER
-);
-CREATE TABLE IF NOT EXISTS joins (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id TEXT,
-  username TEXT,
-  thread_id TEXT,
-  ts INTEGER
-);
-CREATE TABLE IF NOT EXISTS welcomes (
-  user_id TEXT,
-  thread_id TEXT,
-  ts INTEGER,
-  PRIMARY KEY (user_id, thread_id)
-);
-`);
+// Load database
+let db = {};
+if (fs.existsSync(dbPath)) {
+  try {
+    db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+  } catch (e) {}
+}
 
-const getConfig = (key) => {
-  const row = db.prepare('SELECT value FROM config WHERE key = ?').get(key);
-  return row ? row.value : null;
+// Default structure
+if (!db.config) db.config = {};
+if (!db.messages) db.messages = [];
+if (!db.joins) db.joins = [];
+if (!db.welcomes) db.welcomes = {};
+
+// Save function
+const save = () => {
+  fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
 };
 
-const setConfig = (key, value) =>
-  db.prepare('INSERT OR REPLACE INTO config (key,value) VALUES (?,?)').run(key, value);
+const getConfig = (key) => db.config[key] || null;
+const setConfig = (key, value) => {
+  db.config[key] = value;
+  save();
+};
 
-const logMessage = (userId, username, threadId) =>
-  db.prepare('INSERT INTO messages (user_id,username,thread_id,ts) VALUES (?,?,?,?)')
-    .run(userId, username, threadId, Date.now());
+const logMessage = (userId, username, threadId) => {
+  db.messages.push({ userId, username, threadId, ts: Date.now() });
+  save();
+};
 
-const logJoin = (userId, username, threadId) =>
-  db.prepare('INSERT INTO joins (user_id,username,thread_id,ts) VALUES (?,?,?,?)')
-    .run(userId, username, threadId, Date.now());
+const logJoin = (userId, username, threadId) => {
+  db.joins.push({ userId, username, threadId, ts: Date.now() });
+  save();
+};
 
-const getWelcome = (userId, threadId) =>
-  db.prepare('SELECT ts FROM welcomes WHERE user_id=? AND thread_id=?').get(userId, threadId);
+const getWelcome = (userId, threadId) => {
+  const key = `${userId}_${threadId}`;
+  return db.welcomes[key] ? { ts: db.welcomes[key] } : null;
+};
 
-const setWelcome = (userId, threadId) =>
-  db.prepare('INSERT OR REPLACE INTO welcomes (user_id,thread_id,ts) VALUES (?,?,?)')
-    .run(userId, threadId, Date.now());
+const setWelcome = (userId, threadId) => {
+  const key = `${userId}_${threadId}`;
+  db.welcomes[key] = Date.now();
+  save();
+};
 
 const dayStart = () => {
   const d = new Date();
@@ -62,12 +57,11 @@ const dayStart = () => {
 
 const getDailyStats = (threadId) => {
   const start = dayStart();
-  const total = db.prepare('SELECT COUNT(*) c FROM messages WHERE thread_id=? AND ts>=?')
-    .get(threadId, start).c;
-  const active = db.prepare('SELECT COUNT(DISTINCT user_id) c FROM messages WHERE thread_id=? AND ts>=?')
-    .get(threadId, start).c;
-  const joined = db.prepare('SELECT COUNT(*) c FROM joins WHERE thread_id=? AND ts>=?')
-    .get(threadId, start).c;
+  const todaysMessages = db.messages.filter(m => m.threadId === threadId && m.ts >= start);
+  const total = todaysMessages.length;
+  const active = new Set(todaysMessages.map(m => m.userId)).size;
+  const joined = db.joins.filter(j => j.threadId === threadId && j.ts >= start).length;
+  
   return { total, active, joined };
 };
 
