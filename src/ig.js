@@ -21,11 +21,11 @@ async function loginWithCredentials(username, password, proxyUrl) {
     ig.request.defaults.agent = agent;
     console.log('[IG] using proxy');
   } else {
-    console.log('[IG] NO PROXY DETECTED - direct connection');
+    console.log('[IG] no proxy');
   }
 
   try {
-    await ig.simulate.preLoginFlow();
+    // preLoginFlow skipped to avoid 404 token error
     const user = await ig.account.login(username, password);
     me = user;
     console.log('[IG] logged in as', me.username);
@@ -33,7 +33,7 @@ async function loginWithCredentials(username, password, proxyUrl) {
   } catch (e) {
     console.error("Login Error:", e.message);
     if (e.message.includes('challenge')) {
-       throw new Error("Checkpoint! Apne phone me login karke 'It was me' approve karein, phir try karein.");
+       throw new Error("Checkpoint! Apne phone me login karke 'It was me' approve karein.");
     }
     throw new Error(`Exact Error: ${e.message}`);
   }
