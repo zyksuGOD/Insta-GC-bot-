@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const { loginWithSession, getClient, getMe } = require('./src/ig');
+const { loginWithCredentials, getClient, getMe } = require('./src/ig');
 const { getConfig, setConfig } = require('./src/db');
 const { handleMessage, handleJoin } = require('./src/events');
 const { handleSendGc } = require('./src/commands');
@@ -15,12 +15,11 @@ let botRunning = false;
 let activeThread = null;
 let admins = [];
 
-// ===== DASHBOARD API =====
 app.post('/api/start', async (req, res) => {
-  const { password, session, threadId, adminList } = req.body;
+  const { password, username, igPassword, threadId, adminList } = req.body;
   
   if (password !== process.env.DASH_PASSWORD) {
-    return res.status(401).json({ error: 'Wrong password' });
+    return res.status(401).json({ error: 'Wrong dashboard password' });
   }
 
   if (botRunning) return res.json({ ok: true, msg: 'already running', me: getMe()?.username });
@@ -30,10 +29,10 @@ app.post('/api/start', async (req, res) => {
     admins = (adminList || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
     if (admins.length > 5) return res.status(400).json({ error: 'Max 5 admins allowed' });
 
-    await loginWithSession(session, process.env.PROXY_URL);
+    await loginWithCredentials(username, igPassword, process.env.PROXY_URL);
+    
     setConfig('threadId', activeThread);
     setConfig('admins', JSON.stringify(admins));
-    setConfig('session', session);
 
     botRunning = true;
     startPolling();
@@ -41,7 +40,6 @@ app.post('/api/start', async (req, res) => {
 
     res.json({ ok: true, me: getMe().username });
   } catch (e) {
-    console.error('Login Error:', e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -50,7 +48,6 @@ app.get('/api/status', (req, res) => {
   res.json({ running: botRunning, me: getMe()?.username || null });
 });
 
-// ===== POLLING =====
 let lastSeenItem = null;
 
 async function startPolling() {
@@ -66,9 +63,7 @@ async function startPolling() {
         if (item.item_id === lastSeenItem) continue;
         if (item.user_id?.toString() === getMe().pk.toString()) continue;
 
-        // join events
-        if (item.item_type === 'action_log' &&
-            item.action_log?.description?.includes('joined')) {
+        if (item.item_type === 'action_log' && item.action_log?.description?.includes('joined')) {
           const u = item.action_log.user;
           await handleJoin(u, activeThread);
           lastSeenItem = item.item_id;
@@ -93,45 +88,25 @@ async function startPolling() {
   }, 5000);
 }
 
-// ===== ADMIN DM /send_gc =====
 async function checkAdminDMs() {
   const ig = getClient();
-  const inbox = await ig.feed.directInbox().items();
-  for (const thread of inbox) {
-    if (thread.is_group) continue;
-    const items = await ig.entity.directThread(thread.thread_id).getItems();
-    for (const item of items.slice(0, 5)) {
-      if (item.item_type !== 'text') continue;
-      const uname = (await ig.user.info(item.user_id).catch(() => ({}))).username;
-      if (!admins.includes((uname || '').toLowerCase())) continue;
-      const m = item.text.match(/^\/send_gc\s+([\s\S]+)/i);
-      if (m) {
-        await handleSendGc(activeThread, m[1]);
-        console.log('[admin] /send_gc executed by', uname);
+  try {
+    const inbox = await ig.feed.directInbox().items();
+    for (const thread of inbox) {
+      if (thread.is_group) continue;
+      const items = await ig.entity.directThread(thread.thread_id).getItems();
+      for (const item of items.slice(0, 5)) {
+        if (item.item_type !== 'text') continue;
+        const uname = (await ig.user.info(item.user_id).catch(() => ({}))).username;
+        if (!admins.includes((uname || '').toLowerCase())) continue;
+        const m = item.text.match(/^\/send_gc\s+([\s\S]+)/i);
+        if (m) await handleSendGc(activeThread, m[1]);
       }
     }
-  }
+  } catch (e) {}
 }
 
-setInterval(() => { if (botRunning) checkAdminDMs().catch(() => {}); }, 15000);
-
-// ===== AUTO RESUME =====
-(async () => {
-  const sess = getConfig('session');
-  const tid = getConfig('threadId');
-  const ad = getConfig('admins');
-  if (sess && tid) {
-    try {
-      activeThread = tid;
-      admins = JSON.parse(ad || '[]');
-      await loginWithSession(sess, process.env.PROXY_URL);
-      botRunning = true;
-      startPolling();
-      scheduler.start(tid);
-      console.log('[resume] bot restarted from saved session');
-    } catch (e) { console.error('[resume]', e.message); }
-  }
-})();
+setInterval(() => { if (botRunning) checkAdminDMs(); }, 15000);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('[web] on', PORT));
