@@ -9,16 +9,14 @@
 body{background:#0a0a0a;color:#eee;font-family:system-ui,sans-serif;max-width:560px;margin:40px auto;padding:20px}
 h1{color:#ff69b4;margin-bottom:4px}
 p.sub{color:#888;font-size:13px;margin-top:0;margin-bottom:20px}
-input,textarea{width:100%;padding:11px;background:#151515;border:1px solid #333;color:#eee;border-radius:8px;margin:6px 0;font-size:14px;font-family:inherit}
-textarea{resize:vertical;font-family:monospace;font-size:12px}
+input{width:100%;padding:11px;background:#151515;border:1px solid #333;color:#eee;border-radius:8px;margin:6px 0;font-size:14px}
 button{width:100%;padding:13px;background:#ff69b4;color:#000;border:none;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;margin-top:10px}
-button:disabled{opacity:.5;cursor:wait}
+button:disabled{opacity:.5}
 #status{margin-top:16px;padding:12px;border-radius:8px;background:#111;font-size:13px;display:none}
 #status.show{display:block}
 .ok{color:#4ade80;border:1px solid #4ade80}
 .err{color:#f87171;border:1px solid #f87171}
 label{font-size:12px;color:#aaa;display:block;margin-top:14px;margin-bottom:2px;font-weight:600}
-.hint{font-size:11px;color:#666;margin-top:2px}
 </style>
 </head>
 <body>
@@ -26,18 +24,19 @@ label{font-size:12px;color:#aaa;display:block;margin-top:14px;margin-bottom:2px;
 <p class="sub">Instagram group bot — 1 GC, max 5 admins</p>
 
 <label>Dashboard Password</label>
-<input id="pass" type="password" placeholder="DASH_PASSWORD from .env">
+<input id="pass" type="password" placeholder="DASH_PASSWORD">
 
-<label>Session ID (JSON)</label>
-<textarea id="session" rows="6" placeholder='{"cookies":"...","device_id":"..."}'></textarea>
-<div class="hint">Session generate karne ke liye: node gen-session.js chalao</div>
+<label>Instagram Username (Bot Account)</label>
+<input id="username" placeholder="e.g. eren_ye4gerrr">
+
+<label>Instagram Password</label>
+<input id="igPassword" type="password" placeholder="Instagram Password">
 
 <label>Group Thread ID</label>
-<input id="threadId" placeholder="e.g. 340282366841710300949128146631033492225">
-<div class="hint">GC ke URL ya invite se thread ID milega. Bot logs mein bhi dekh sakta hai.</div>
+<input id="threadId" placeholder="e.g. 1158412246605899">
 
 <label>Admin usernames (comma separated, max 5)</label>
-<input id="admins" placeholder="admin1, admin2, admin3">
+<input id="admins" placeholder="admin1, admin2">
 
 <button id="go">Start Bot</button>
 <div id="status"></div>
@@ -47,7 +46,7 @@ document.getElementById('go').onclick = async () => {
   const btn = document.getElementById('go');
   const s = document.getElementById('status');
   btn.disabled = true;
-  s.textContent = 'Starting...';
+  s.textContent = 'Starting... (May take 30s)';
   s.className = 'show';
   try {
     const r = await fetch('/api/start', {
@@ -55,7 +54,8 @@ document.getElementById('go').onclick = async () => {
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         password: document.getElementById('pass').value,
-        session: document.getElementById('session').value,
+        username: document.getElementById('username').value,
+        igPassword: document.getElementById('igPassword').value,
         threadId: document.getElementById('threadId').value,
         adminList: document.getElementById('admins').value
       })
@@ -75,20 +75,6 @@ document.getElementById('go').onclick = async () => {
     btn.disabled = false;
   }
 };
-
-// auto-check status on load
-(async () => {
-  try {
-    const r = await fetch('/api/status');
-    const j = await r.json();
-    if (j.running) {
-      const s = document.getElementById('status');
-      s.textContent = '✅ Already running as @' + j.me;
-      s.className = 'show ok';
-      document.getElementById('go').disabled = true;
-    }
-  } catch {}
-})();
 </script>
 </body>
 </html>
