@@ -15,7 +15,6 @@ function buildProxyAgent(proxyUrl) {
 async function loginWithSession(sessionString, proxyUrl) {
   ig = new IgApiClient();
   
-  // Generate a random device id automatically
   const randomDeviceId = 'android-' + Math.random().toString(16).slice(2, 18);
   ig.state.generateDevice(randomDeviceId);
 
@@ -24,22 +23,32 @@ async function loginWithSession(sessionString, proxyUrl) {
     ig.request.defaults.agent = agent;
     console.log('[IG] using proxy');
   } else {
-    console.log('[IG] no proxy — direct (ban risk higher)');
+    console.log('[IG] no proxy — direct');
   }
 
   let sessionJson;
-  
-  // Agar Kanha ne direct raw sessionid paste kiya hai
-  if (!sessionString.trim().startsWith('{')) {
+  let cleanString = sessionString.trim();
+
+  // Agar user ne direct raw sessionid paste kiya hai
+  if (!cleanString.startsWith('{')) {
+    // Agar usne galti se 'sessionid=' laga diya hai, toh use hata do
+    if (cleanString.startsWith('sessionid=')) {
+      cleanString = cleanString.replace('sessionid=', '');
+    }
+    
     sessionJson = {
-      cookies: `sessionid=${sessionString.trim()}`,
+      cookies: `sessionid=${cleanString}`,
       device_id: randomDeviceId
     };
   } else {
     // Agar JSON format mein paste kiya hai
-    sessionJson = JSON.parse(sessionString);
-    if (sessionJson.cookies && !sessionJson.cookies.includes('sessionid=')) {
-      sessionJson.cookies = `sessionid=${sessionJson.cookies}`;
+    try {
+      sessionJson = JSON.parse(cleanString);
+      if (sessionJson.cookies && !sessionJson.cookies.includes('sessionid=')) {
+        sessionJson.cookies = `sessionid=${sessionJson.cookies}`;
+      }
+    } catch (e) {
+      throw new Error("Session ID ka format galat hai. Sirf lamba wala text paste karein.");
     }
   }
 
