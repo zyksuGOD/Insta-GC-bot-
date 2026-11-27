@@ -27,11 +27,11 @@ async function loginWithSession(sessionString, proxyUrl) {
   }
 
   let sessionJson;
-  let cleanString = sessionString.trim();
+  let cleanString = String(sessionString).trim();
 
-  // Agar user ne direct raw sessionid paste kiya hai
+  // Agar direct session id paste kiya hai
   if (!cleanString.startsWith('{')) {
-    // Agar usne galti se 'sessionid=' laga diya hai, toh use hata do
+    // Agar galti se 'sessionid=' laga diya hai, toh hata do
     if (cleanString.startsWith('sessionid=')) {
       cleanString = cleanString.replace('sessionid=', '');
     }
@@ -52,10 +52,14 @@ async function loginWithSession(sessionString, proxyUrl) {
     }
   }
 
-  await ig.state.deserialize(sessionJson);
-  me = await ig.account.currentUser();
-  console.log('[IG] logged in as', me.username);
-  return me;
+  try {
+    await ig.state.deserialize(sessionJson);
+    me = await ig.account.currentUser();
+    console.log('[IG] logged in as', me.username);
+    return me;
+  } catch (err) {
+    throw new Error("Instagram login fail. Session ID expired ho sakta hai. Naya session nikal kar try karein.");
+  }
 }
 
 function getClient() {
