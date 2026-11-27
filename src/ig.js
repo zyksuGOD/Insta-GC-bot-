@@ -12,63 +12,32 @@ function buildProxyAgent(proxyUrl) {
   return new HttpsProxyAgent(url);
 }
 
-async function loginWithSession(sessionString, proxyUrl) {
+async function loginWithCredentials(username, password, proxyUrl) {
   ig = new IgApiClient();
-  
-  const randomDeviceId = 'android-' + Math.random().toString(16).slice(2, 18);
-  ig.state.generateDevice(randomDeviceId);
+  ig.state.generateDevice(username);
 
   const agent = buildProxyAgent(proxyUrl);
   if (agent) {
     ig.request.defaults.agent = agent;
     console.log('[IG] using proxy');
-  } else {
-    console.log('[IG] no proxy — direct');
-  }
-
-  let sessionJson;
-  let cleanString = String(sessionString).trim();
-
-  // Agar direct session id paste kiya hai
-  if (!cleanString.startsWith('{')) {
-    // Agar galti se 'sessionid=' laga diya hai, toh hata do
-    if (cleanString.startsWith('sessionid=')) {
-      cleanString = cleanString.replace('sessionid=', '');
-    }
-    
-    sessionJson = {
-      cookies: `sessionid=${cleanString}`,
-      device_id: randomDeviceId
-    };
-  } else {
-    // Agar JSON format mein paste kiya hai
-    try {
-      sessionJson = JSON.parse(cleanString);
-      if (sessionJson.cookies && !sessionJson.cookies.includes('sessionid=')) {
-        sessionJson.cookies = `sessionid=${sessionJson.cookies}`;
-      }
-    } catch (e) {
-      throw new Error("Session ID ka format galat hai. Sirf lamba wala text paste karein.");
-    }
   }
 
   try {
-    await ig.state.deserialize(sessionJson);
-    me = await ig.account.currentUser();
+    await ig.simulate.preLoginFlow();
+    const user = await ig.account.login(username, password);
+    me = user;
     console.log('[IG] logged in as', me.username);
     return me;
-  } catch (err) {
-    throw new Error("Instagram login fail. Session ID expired ho sakta hai. Naya session nikal kar try karein.");
+  } catch (e) {
+    console.error("Login Error:", e.message);
+    if (e.message.includes('challenge')) {
+       throw new Error("Instagram ne checkpoint maanga hai. Apne phone/browser me login karke 'It was me' approve karein, phir try karein.");
+    }
+    throw new Error("Login failed. Check username/password.");
   }
 }
 
-function getClient() {
-  if (!ig) throw new Error('IG not logged in');
-  return ig;
-}
+function getClient() { return ig; }
+function getMe() { return me; }
 
-function getMe() {
-  return me;
-}
-
-module.exports = { loginWithSession, getClient, getMe };
+module.exports = { loginWithCredentials, getClient, getMe };
