@@ -20,6 +20,8 @@ async function loginWithCredentials(username, password, proxyUrl) {
   if (agent) {
     ig.request.defaults.agent = agent;
     console.log('[IG] using proxy');
+  } else {
+    console.log('[IG] NO PROXY DETECTED - direct connection');
   }
 
   try {
@@ -31,9 +33,9 @@ async function loginWithCredentials(username, password, proxyUrl) {
   } catch (e) {
     console.error("Login Error:", e.message);
     if (e.message.includes('challenge')) {
-       throw new Error("Instagram ne checkpoint maanga hai. Apne phone/browser me login karke 'It was me' approve karein, phir try karein.");
+       throw new Error("Checkpoint! Apne phone me login karke 'It was me' approve karein, phir try karein.");
     }
-    throw new Error("Login failed. Check username/password.");
+    throw new Error(`Exact Error: ${e.message}`);
   }
 }
 
