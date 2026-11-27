@@ -14,7 +14,10 @@ function buildProxyAgent(proxyUrl) {
 
 async function loginWithSession(sessionString, proxyUrl) {
   ig = new IgApiClient();
-  ig.state.generateDevice('ig_gc_bot_' + Date.now());
+  
+  // Generate a random device id automatically
+  const randomDeviceId = 'android-' + Math.random().toString(16).slice(2, 18);
+  ig.state.generateDevice(randomDeviceId);
 
   const agent = buildProxyAgent(proxyUrl);
   if (agent) {
@@ -24,8 +27,23 @@ async function loginWithSession(sessionString, proxyUrl) {
     console.log('[IG] no proxy — direct (ban risk higher)');
   }
 
-  const session = JSON.parse(sessionString);
-  await ig.state.deserialize(session);
+  let sessionJson;
+  
+  // Agar Kanha ne direct raw sessionid paste kiya hai
+  if (!sessionString.trim().startsWith('{')) {
+    sessionJson = {
+      cookies: `sessionid=${sessionString.trim()}`,
+      device_id: randomDeviceId
+    };
+  } else {
+    // Agar JSON format mein paste kiya hai
+    sessionJson = JSON.parse(sessionString);
+    if (sessionJson.cookies && !sessionJson.cookies.includes('sessionid=')) {
+      sessionJson.cookies = `sessionid=${sessionJson.cookies}`;
+    }
+  }
+
+  await ig.state.deserialize(sessionJson);
   me = await ig.account.currentUser();
   console.log('[IG] logged in as', me.username);
   return me;
