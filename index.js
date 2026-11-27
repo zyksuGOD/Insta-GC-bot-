@@ -18,28 +18,30 @@ let admins = [];
 // ===== DASHBOARD API =====
 app.post('/api/start', async (req, res) => {
   const { password, session, threadId, adminList } = req.body;
-  if (password !== process.env.DASH_PASSWORD)
+  
+  if (password !== process.env.DASH_PASSWORD) {
     return res.status(401).json({ error: 'Wrong password' });
+  }
 
   if (botRunning) return res.json({ ok: true, msg: 'already running', me: getMe()?.username });
 
   try {
-    activeThread = threadId;
+    activeThread = threadId.trim();
     admins = (adminList || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
     if (admins.length > 5) return res.status(400).json({ error: 'Max 5 admins allowed' });
 
     await loginWithSession(session, process.env.PROXY_URL);
-    setConfig('threadId', threadId);
+    setConfig('threadId', activeThread);
     setConfig('admins', JSON.stringify(admins));
     setConfig('session', session);
 
     botRunning = true;
     startPolling();
-    scheduler.start(threadId);
+    scheduler.start(activeThread);
 
     res.json({ ok: true, me: getMe().username });
   } catch (e) {
-    console.error(e);
+    console.error('Login Error:', e);
     res.status(500).json({ error: e.message });
   }
 });
