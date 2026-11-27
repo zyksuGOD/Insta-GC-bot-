@@ -12,34 +12,50 @@ function buildProxyAgent(proxyUrl) {
   return new HttpsProxyAgent(url);
 }
 
-async function loginWithCredentials(username, password, proxyUrl) {
+async function loginWithSession(sessionString, proxyUrl) {
   ig = new IgApiClient();
-  ig.state.generateDevice(username);
+  
+  const randomDeviceId = 'android-' + Math.random().toString(16).slice(2, 18);
+  ig.state.generateDevice(randomDeviceId);
 
   const agent = buildProxyAgent(proxyUrl);
   if (agent) {
     ig.request.defaults.agent = agent;
-    console.log('[IG] using proxy');
+  }
+
+  let sessionJson;
+  let cleanString = String(sessionString).trim();
+
+  if (!cleanString.startsWith('{')) {
+    if (cleanString.startsWith('sessionid=')) {
+      cleanString = cleanString.replace('sessionid=', '');
+    }
+    sessionJson = {
+      cookies: `sessionid=${cleanString}`,
+      device_id: randomDeviceId
+    };
   } else {
-    console.log('[IG] no proxy');
+    try {
+      sessionJson = JSON.parse(cleanString);
+      if (sessionJson.cookies && !sessionJson.cookies.includes('sessionid=')) {
+        sessionJson.cookies = `sessionid=${sessionJson.cookies}`;
+      }
+    } catch (e) {
+      throw new Error("Session ID ka format galat hai.");
+    }
   }
 
   try {
-    // preLoginFlow skipped to avoid 404 token error
-    const user = await ig.account.login(username, password);
-    me = user;
+    await ig.state.deserialize(sessionJson);
+    me = await ig.account.currentUser();
     console.log('[IG] logged in as', me.username);
     return me;
-  } catch (e) {
-    console.error("Login Error:", e.message);
-    if (e.message.includes('challenge')) {
-       throw new Error("Checkpoint! Apne phone me login karke 'It was me' approve karein.");
-    }
-    throw new Error(`Exact Error: ${e.message}`);
+  } catch (err) {
+    throw new Error("Session expired ya invalid hai. Phone se naya nikaal ke daal.");
   }
 }
 
 function getClient() { return ig; }
 function getMe() { return me; }
 
-module.exports = { loginWithCredentials, getClient, getMe };
+module.exports = { loginWithSession, getClient, getMe };
