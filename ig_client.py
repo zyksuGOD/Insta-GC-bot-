@@ -1,4 +1,5 @@
 import logging
+import urllib.parse
 from pathlib import Path
 from instagrapi import Client
 from instagrapi.exceptions import LoginRequired, ClientError
@@ -13,10 +14,11 @@ def _extract_netscape_value(cookie_text: str, name: str) -> str:
     for line in cookie_text.splitlines():
         if not line or line.startswith("#"):
             continue
-        # Handle both tab and space separated lines
         parts = line.replace("\t", " ").split()
         if len(parts) >= 7 and parts[5] == name:
-            return parts[6]
+            val = parts[6]
+            # Decode URL encoded characters like %3A back to :
+            return urllib.parse.unquote(val)
     return ""
 
 def login_client(cookie_path: Path = Path("cookies.txt")) -> bool:
@@ -41,7 +43,9 @@ def login_client(cookie_path: Path = Path("cookies.txt")) -> bool:
             log.error("sessionid missing in cookies.txt. Check the file format!")
             return False
             
-        log.info("Found sessionid, attempting login...")
+        log.info(f"Found sessionid (length: {len(sessionid)}), attempting login...")
+        
+        # Use login_by_sessionid with properly decoded sessionid
         client.login_by_sessionid(sessionid)
         client.dump_settings(SESSION_FILE)
         log.info("Logged in via sessionid successfully.")
