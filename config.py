@@ -3,7 +3,7 @@ import pytz
 BOT_USERNAME = "suspicious_eren"
 
 GROUP_IDS = [
-    "296142158756",
+    "2961421587561271",
 ]
 
 ADMINS = {
