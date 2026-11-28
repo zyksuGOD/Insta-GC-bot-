@@ -1,5 +1,5 @@
-instagrapi==2.1.2
-flask==3.0.3
-apscheduler==3.10.4
-pytz==2024.1
-gunicorn==22.0.0
+instagrapi
+flask
+apscheduler
+pytz
+gunicorn
