@@ -1,7 +1,9 @@
 from config import ADMINS
 from storage import get_today_stats, today_key
 from ig_client import safe_send
+import logging
 
+log = logging.getLogger("eren_bot")
 
 def build_daily_report() -> str:
     s = get_today_stats()
@@ -16,25 +18,23 @@ def build_daily_report() -> str:
     ]
     return "\n".join(lines)
 
-
 def handle_commands(thread_id: str, username: str, text: str):
     text = (text or "").strip()
     if not text.startswith("/"):
         return
 
+    log.info(f"Command received from @{username}: {text}")
+    
     admin = username in ADMINS
+    if not admin:
+        log.warning(f"@{username} is not in ADMINS list!")
+        return
 
     if text == "/daily":
-        if not admin:
-            safe_send(thread_id, "Only admins can use this command.")
-            return
         safe_send(thread_id, build_daily_report())
         return
 
     if text.startswith("/send_gc_"):
-        if not admin:
-            safe_send(thread_id, "Only admins can use this command.")
-            return
         rest = text[len("/send_gc_"):]
         if not rest or " " not in rest:
             safe_send(thread_id, "Format: /send_gc_<thread_id> <message>")
