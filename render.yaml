@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: eren-instagram-bot
-    env: python
-    plan: free
-    region: singapore
-    buildCommand: pip install --upgrade pip && pip install --only-binary=:all: -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
