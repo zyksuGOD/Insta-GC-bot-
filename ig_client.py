@@ -1,3 +1,4 @@
+import os
 import logging
 import urllib.parse
 from pathlib import Path
@@ -10,40 +11,27 @@ log = logging.getLogger("eren_bot")
 client = Client()
 client.delay_range = [3, 7]
 
-def _extract_netscape_value(cookie_text: str, name: str) -> str:
-    for line in cookie_text.splitlines():
-        if not line or line.startswith("#"):
-            continue
-        parts = line.split()
-        if len(parts) >= 7 and parts[5] == name:
-            val = parts[6]
-            return urllib.parse.unquote(val)
-    return ""
-
-def login_client(cookie_path: Path = Path("cookies.txt")) -> bool:
+def login_client() -> bool:
+    # 1. Purana session delete kar de taaki naya login ho
     if SESSION_FILE.exists():
         try:
-            client.load_settings(SESSION_FILE)
-            client.get_timeline_feed()
-            log.info("Session restored.")
-            return True
-        except Exception as e:
-            log.warning(f"Session invalid: {e}")
+            SESSION_FILE.unlink()
+            log.info("Deleted old session file.")
+        except Exception:
+            pass
 
-    if not cookie_path.exists():
-        log.error("No session and no cookies.txt.")
+    # 2. Direct Env Variable se sessionid utha
+    sessionid_raw = os.environ.get("IG_SESSION_ID", "")
+    
+    if not sessionid_raw:
+        log.error("IG_SESSION_ID environment variable is missing in Render!")
         return False
 
+    # 3. URL decode kar (%3A ko : banane ke liye)
+    sessionid = urllib.parse.unquote(sessionid_raw)
+    
     try:
-        text = cookie_path.read_text(encoding="utf-8")
-        sessionid = _extract_netscape_value(text, "sessionid")
-        
-        if not sessionid:
-            log.error("sessionid missing in cookies.txt. Format is wrong.")
-            return False
-            
-        log.info(f"Found sessionid (length: {len(sessionid)}), attempting login...")
-        
+        log.info(f"Found sessionid in ENV (length: {len(sessionid)}), attempting login...")
         client.login_by_sessionid(sessionid)
         client.dump_settings(SESSION_FILE)
         log.info("Logged in via sessionid successfully.")
