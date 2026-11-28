@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: insta-gc-bot
+    env: python
+    plan: free
+    region: singapore
+    buildCommand: pip install --upgrade pip && pip install --only-binary=:all: instagrapi flask apscheduler pytz gunicorn
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --worker-class gthread --workers 1 --threads 4 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
