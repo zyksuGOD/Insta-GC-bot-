@@ -1,7 +1,0 @@
-node_modules/
-.env
-bot.db
-bot.db-wal
-bot.db-shm
-*.log
-session.json
