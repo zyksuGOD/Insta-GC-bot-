@@ -7,18 +7,17 @@ from storage import SESSION_FILE
 log = logging.getLogger("eren_bot")
 
 client = Client()
-client.delay_range = [1, 3]
-
+client.delay_range = [3, 7]  # Safer delay to avoid ban
 
 def _extract_netscape_value(cookie_text: str, name: str) -> str:
     for line in cookie_text.splitlines():
         if not line or line.startswith("#"):
             continue
-        parts = line.split("\t")
+        # Handle both tab and space separated lines
+        parts = line.replace("\t", " ").split()
         if len(parts) >= 7 and parts[5] == name:
             return parts[6]
     return ""
-
 
 def login_client(cookie_path: Path = Path("cookies.txt")) -> bool:
     if SESSION_FILE.exists():
@@ -37,17 +36,19 @@ def login_client(cookie_path: Path = Path("cookies.txt")) -> bool:
     try:
         text = cookie_path.read_text(encoding="utf-8")
         sessionid = _extract_netscape_value(text, "sessionid")
+        
         if not sessionid:
-            log.error("sessionid missing in cookies.txt")
+            log.error("sessionid missing in cookies.txt. Check the file format!")
             return False
+            
+        log.info("Found sessionid, attempting login...")
         client.login_by_sessionid(sessionid)
         client.dump_settings(SESSION_FILE)
-        log.info("Logged in via sessionid.")
+        log.info("Logged in via sessionid successfully.")
         return True
     except Exception as e:
         log.error(f"Cookie login failed: {e}")
         return False
-
 
 def safe_send(thread_id: str, text: str) -> bool:
     try:
