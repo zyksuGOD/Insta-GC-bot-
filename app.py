@@ -16,28 +16,33 @@ log = logging.getLogger("eren_bot")
 
 app = Flask(__name__)
 _scheduler = None
-
+_bot_started = False
 
 @app.route("/")
 def index():
     return {"status": "ok", "bot": BOT_USERNAME}
 
-
 @app.route("/health")
 def health():
     return {"ok": True, "time": datetime.now(TIMEZONE).isoformat()}
 
-
 def bootstrap():
-    global _scheduler
+    global _scheduler, _bot_started
+    if _bot_started:
+        return
+    _bot_started = True
+    
+    log.info("Starting bot bootstrap...")
     if not login_client():
         log.error("Initial login failed — bot idle.")
         return
+    log.info("Login successful. Starting scheduler...")
     _scheduler = start_scheduler()
     threading.Thread(target=poll_direct_messages, daemon=True).start()
 
+# Ye gunicorn ke liye zaroori hai
+bootstrap()
 
 if __name__ == "__main__":
-    bootstrap()
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
