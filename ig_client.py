@@ -8,16 +8,15 @@ from storage import SESSION_FILE
 log = logging.getLogger("eren_bot")
 
 client = Client()
-client.delay_range = [3, 7]  # Safer delay to avoid ban
+client.delay_range = [3, 7]
 
 def _extract_netscape_value(cookie_text: str, name: str) -> str:
     for line in cookie_text.splitlines():
         if not line or line.startswith("#"):
             continue
-        parts = line.replace("\t", " ").split()
+        parts = line.split()
         if len(parts) >= 7 and parts[5] == name:
             val = parts[6]
-            # Decode URL encoded characters like %3A back to :
             return urllib.parse.unquote(val)
     return ""
 
@@ -40,12 +39,11 @@ def login_client(cookie_path: Path = Path("cookies.txt")) -> bool:
         sessionid = _extract_netscape_value(text, "sessionid")
         
         if not sessionid:
-            log.error("sessionid missing in cookies.txt. Check the file format!")
+            log.error("sessionid missing in cookies.txt. Format is wrong.")
             return False
             
         log.info(f"Found sessionid (length: {len(sessionid)}), attempting login...")
         
-        # Use login_by_sessionid with properly decoded sessionid
         client.login_by_sessionid(sessionid)
         client.dump_settings(SESSION_FILE)
         log.info("Logged in via sessionid successfully.")
