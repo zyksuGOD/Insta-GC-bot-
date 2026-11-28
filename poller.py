@@ -29,6 +29,10 @@ def poll_direct_messages():
 
     for thread in threads:
         thread_id = str(thread.id)
+        
+        # DEBUG: Print all thread IDs so we can find the real one
+        log.info(f"Scanning thread: {thread_id}")
+
         if thread_id not in GROUP_IDS:
             continue
 
