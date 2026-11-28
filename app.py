@@ -36,11 +36,13 @@ def bootstrap():
     if not login_client():
         log.error("Initial login failed — bot idle.")
         return
+    
     log.info("Login successful. Starting scheduler...")
     _scheduler = start_scheduler()
     threading.Thread(target=poll_direct_messages, daemon=True).start()
+    log.info("Bot is fully running!")
 
-# Ye gunicorn ke liye zaroori hai
+# This runs when gunicorn imports 'app'
 bootstrap()
 
 if __name__ == "__main__":
